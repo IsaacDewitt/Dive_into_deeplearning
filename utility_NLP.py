@@ -10,8 +10,11 @@ import os
 import collections
 import re
 import torch
+
+from torch import nn
 import utility
 import random
+from torch.nn import functional as F
 
 
 
@@ -162,3 +165,76 @@ class SeqDataLoader:
 def load_data_time_machine(batch_size,num_steps,use_random_iter = False, max_tokens = 10000):
     data_iter = SeqDataLoader(batch_size, num_steps, use_random_iter, max_tokens)
     return data_iter,data_iter.vocab
+
+def init_rnn_state(batch_size,num_hiddens,device):
+    return (torch.zeros((batch_size,num_hiddens),device = device),)
+
+def get_params(vocab_size,num_hiddens,device):
+    num_inputs = num_outputs = vocab_size
+    def normal(shape):
+        return torch.randn(size = shape, device = device) * 0.01
+    W_xh = normal((num_inputs,num_hiddens))
+    W_hh = normal((num_hiddens,num_hiddens))
+    b_h = torch.zeros(num_hiddens,device = device)
+    b_q = torch.zeros(num_outputs,device = device)
+
+    params = [W_xh,W_hh,b_h,b_q]
+    for param in params:
+        param.requires_grad_(True)
+    return params
+
+def rnn(inputs,state,params):
+    w_xh,w_hh,b_h,w_hq,b_q = params
+    H, = state
+    outputs = []
+    # X的形状为：（批量大小，词表大小）
+    for X in inputs:
+        H = torch.tanh(torch.mm(X,w_xh) + H@w_hh)
+        Y = H@w_hq + b_q
+        outputs.append(Y)
+    return torch.cat(outputs,dim = 0),(H,)
+
+class RNNModelScratch:
+    def __init__(self,vocab_size,num_hiddens,device,get_params,init_state,forward_fn):
+        self.vocab_size, self.num_hiddens = vocab_size,num_hiddens
+        self.params = get_params(vocab_size,num_hiddens,device)
+        self.init_state, self.forward_fn = init_state,forward_fn
+
+    def __call__(self,x,state):
+        # 类obj，创建一下，我们直接运行obj()，会调用obj.__call__
+        x = F.one_hot(x,self.vocab_size).type(torch.float32)
+        # 热编码，将一个有n个数据，h个类别的向量数据，把nx1大小的向量，转换成一个大小为
+        # nxh的向量，例如[0,1,2],转换为[[1,0,0],[0,1,0],[0,0,1]]
+        return self.forward_fn(x,state,self.params)
+
+    def begin_state(self,batch_size,device):
+        return self.init_state(batch_size,self.num_hiddens,device)
+def predict_ch8(prefix,num_preds,net,vocab,device):
+    state = net.begin_state(batch_size = 1,device = device)
+    outputs = [vocab[prefix[0]]]
+    get_input = lambda: torch.tensor([outputs[-1]],device = device).reshape((1,1))
+    # 函数名 = lambda 参数:表达式，等价于def函数名（参数）：return 表达式
+    for y in prefix[1:]:
+        _,state = net(get_input(),state)
+        outputs.append(vocab[y])
+    for _ in range(num_preds):
+        y,state = net(get_input(),state)
+        outputs.append(int(y.argmax(dim = 1).reshape(1)))
+        # argmax和argmin返回最大值或者最小值索引，dim指定维度，keepdim，是否保持维度
+    return ''.join([vocab.idx_to_token[i] for i in outputs])
+def grad_clipping(net,theta):
+    if isinstance(net,nn.Module):
+        params = [p for p in net.parameters() if p.requires_grad]
+    else:
+        params = net.params
+    norm = torch.sqrt(sum(torch.sum((p.grad**2)) for p in params))
+    if norm > theta:
+        for param in params:
+            param.grad[:]*=theta/norm
+
+def train_epoch_ch8(net,train_iter,loss,updater,device,use_random_iter):
+    state,timer = None, utility.Timer()
+    metric = utility.Accumulator(2)
+    for x,y in train_iter:
+        if state is None or use_random_iter:
+            state = net.begin_state(batch_size = x.shape,device = device)
