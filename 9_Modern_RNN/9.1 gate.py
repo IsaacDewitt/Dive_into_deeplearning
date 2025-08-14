@@ -51,11 +51,13 @@ if __name__ == '__main__':
     batch_size, num_steps = 32,35
     train_iter,vocab = utility_NLP.load_data_time_machine(batch_size,num_steps)
     vocab_size, num_hiddens,device = len(vocab),256,utility.try_gpu()
-    # num_epochs,lr = 500,1
+    num_epochs,lr = 500,1
     # model = utility_NLP.RNNModelScratch(len(vocab),num_hiddens,device,get_params,
     #                                     init_gru_state, gru)
     # # 需要补充train_ch8
     num_inputs = vocab_size
     gru_layer = nn.GRU(num_inputs,num_hiddens)
-    # model =
+    model = utility_NLP.RNNModel(gru_layer,len(vocab))
+    model = model.to(device)
+    utility_NLP.train_ch8(model,train_iter,vocab,lr,num_epochs,device)
 

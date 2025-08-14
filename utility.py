@@ -11,13 +11,14 @@ import torch
 import time
 import hashlib
 from torch.utils import data
-from IPython import display
 import matplotlib.pyplot as plt
-from matplotlib_inline import backend_inline
 import os
 import requests
+# requests是python中常用的HTTP请求库之一，可以实现python中的发送网络请求和接收网路请求
+import matplotlib
+matplotlib.use('TkAgg')
+# 使用TkAgg来弹出一个交互窗口
 
-# from matplotlib import rcParams
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -130,11 +131,6 @@ class Timer:
     def sum(self):
         return sum(self.times)  # 直接对列表求和
     
-def use_svg_display():
-    """使用svg格式在Jupyter中显示绘图
-
-    Defined in :numref:`sec_calculus`"""
-    backend_inline.set_matplotlib_formats('svg')
 
 def set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend):
     """设置matplotlib的轴
@@ -153,19 +149,24 @@ def set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend):
 class Animator:
     def __init__(self,xlabel = None,ylabel = None, legend = None, xlim = None,
                  ylim = None, xscale = 'linear',yscale = 'linear',
-                 fmts = ('-','m--','g-','r:'),nrows = 1,ncols = 1,
-                 figsize = (3.5,2.5)):
+                 fmts = ('-','m--','g-','r:'), nrows = 1, ncols = 1,
+                 figsize = (4.5,3.5)):
         if legend is None:
             legend = []
-        use_svg_display()
+        plt.ion()
+
         self.fig, self.axes = plt.subplots(nrows,ncols, figsize = figsize)
+
         if nrows*ncols == 1:
-            self.axes = [self.axes,]
+            self.axes = [self.axes, ]
+
         self.config_axes = lambda:set_axes(self.axes[0], xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
         # lambd 参数列表：表达式
         # 其函数名和参数列表都可以没有；可以作为参数传递到高等函数里
         
         self.X,self.Y,self.fmts = None, None, fmts
+        self.fig.show()
+        # 显示窗口
         
     def add(self,x,y):
         if not hasattr(y,'__len__'):
@@ -175,23 +176,28 @@ class Animator:
         n = len(y)
         if not hasattr(x,'__len__'):
             x = [x]* n
-            
         if not self.X:
             self.X = [[] for _ in range(n)]
             # 创建一个n个[]的列表
         if not self.Y:
             self.Y = [[] for _ in range(n)]
+
         for i,(a,b) in enumerate(zip(x,y)):
             # enumerate(iterable, start = 0),返回一个enumerate对象，每次迭代生成一个元组（index,value），
             if a is not None and b is not None:
                 self.X[i].append(a)
                 self.Y[i].append(b)
+
         self.axes[0].cla()
         for x,y,fmt in zip(self.X,self.Y,self.fmts):
             self.axes[0].plot(x,y,fmt)
+
+        # self.config_axes()
+        # plt.draw()
+        # plt.pause(0.01)  # 短暂停留，触发刷新
         self.config_axes()
-        display.display(self.fig)
-        display.clear_output(wait = True)
+        self.fig.canvas.flush_events()
+        plt.pause(0.01)
         
 def loadDataFashionMnist(batch_size,resize=None):
     trans = [transforms.ToTensor()]
@@ -286,45 +292,6 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
          ylim=None, xscale='linear', yscale='linear', fmts=('-', 'm--', 'g-.', 'r:'),
          figsize=(3.5, 2.5), axes=None):
     """Plot data points with styles."""
-    # 输入数据处理
-    # if Y is None:
-    #     X, Y = [[]] * len(X), X
-    # elif not isinstance(X[0], (list, tuple)):
-    #     X = [X]
-    # if not isinstance(Y[0], (list, tuple)):
-    #     Y = [Y]
-    # if len(X) != len(Y):
-    #     X = X * len(Y)
-        
-    # # 设置绘图样式
-    # rcParams['font.size'] = 14  # 全局字体大小
-    # plt.rcParams['figure.figsize'] = figsize  # 默认图像尺寸
-    
-    # # 创建坐标轴
-    # if axes is None:
-    #     axes = plt.gca()
-    # axes.cla()
-    
-    # # 绘制每条曲线
-    # for x, y, fmt in zip(X, Y, fmts):
-    #     if x:
-    #         axes.plot(x, y, fmt)
-    #     else:
-    #         axes.plot(y, fmt)
-    
-    # # 设置坐标轴属性
-    # axes.set_xlabel(xlabel)
-    # axes.set_ylabel(ylabel)
-    # axes.set_xscale(xscale)
-    # axes.set_yscale(yscale)
-    # axes.set_xlim(xlim)
-    # axes.set_ylim(ylim)
-    
-    # # 添加图例
-    # if legend:
-    #     axes.legend(legend)
-    # axes.grid()  # 显示网格
-
     # plt.show()
     if legend is None:
         legend = []
@@ -368,25 +335,6 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
     plt.show()
     # 返回 axes 对象，方便进一步操作
     return axes
-
-# --- 示例用法 ---
-if __name__ == '__main__':
-    # 示例 1: 绘制 y = x^2
-    x = np.arange(0, 3, 0.1)
-    plot(x, [x**2, 2*x - 1], 'x', 'f(x)', legend=['f(x) = x^2', 'f(x) = 2x - 1'])
-    plt.show()
-
-    # 示例 2: 只提供 Y 值
-    y_data = np.random.rand(10)
-    plot(y_data, ylabel='Random Values')
-    plt.show()
-
-    # 示例 3: 在同一个 axes 上绘制
-    fig, axes = plt.subplots(figsize=(6, 4))
-    plot(x, x**2, xlabel='x', ylabel='y', axes=axes, legend=['x^2'])
-    plot(x, np.sin(x) * 5, axes=axes, legend=['5sin(x)'], fmts=('g--')) # 使用不同的格式符
-    plt.show()
-    
 
 def try_gpu(i=0):
     if torch.cuda.device_count()>=i+1:

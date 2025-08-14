@@ -11,12 +11,14 @@ import collections
 import re
 import torch
 import math
-
+import matplotlib.pyplot as plt
 from torch import nn
 import utility
 import random
 from torch.nn import functional as F
-
+import matplotlib
+matplotlib.use('TkAgg')
+# 使用TkAgg来弹出一个交互窗口
 
 
 # 获取当前脚本的绝对路径
@@ -203,13 +205,14 @@ class RNNModelScratch:
 
     def __call__(self,x,state):
         # 类obj，创建一下，我们直接运行obj()，会调用obj.__call__
-        x = F.one_hot(x,self.vocab_size).type(torch.float32)
+        x = F.one_hot(x.T,self.vocab_size).type(torch.float32)
         # 热编码，将一个有n个数据，h个类别的向量数据，把nx1大小的向量，转换成一个大小为
         # nxh的向量，例如[0,1,2],转换为[[1,0,0],[0,1,0],[0,0,1]]
         return self.forward_fn(x,state,self.params)
 
     def begin_state(self,batch_size,device):
         return self.init_state(batch_size,self.num_hiddens,device)
+
 def predict_ch8(prefix,num_preds,net,vocab,device):
     state = net.begin_state(batch_size = 1,device = device)
     outputs = [vocab[prefix[0]]]
@@ -223,6 +226,7 @@ def predict_ch8(prefix,num_preds,net,vocab,device):
         outputs.append(int(y.argmax(dim = 1).reshape(1)))
         # argmax和argmin返回最大值或者最小值索引，dim指定维度，keepdim，是否保持维度
     return ''.join([vocab.idx_to_token[i] for i in outputs])
+
 def grad_clipping(net,theta):
     if isinstance(net,nn.Module):
         params = [p for p in net.parameters() if p.requires_grad]
@@ -260,7 +264,8 @@ def train_epoch_ch8(net,train_iter,loss,updater,device,use_random_iter):
             grad_clipping(net,1)
             updater(batch_size = 1)
         metric.add(l*y.numel(),y.numel())
-    return math.exp(metric[0]/metric/[1]),metric[1] / timer.stop()
+    return math.exp(metric[0]/metric[1]),metric[1] / timer.stop()
+
 def train_ch8(net,train_iter,vocab, lr, num_epochs,device, use_random_iter = False):
     loss = nn.CrossEntropyLoss()
     animator = utility.Animator(xlabel='epoch', ylabel = 'perplexity', legend = ['train'], xlim = [10,num_epochs])
@@ -277,3 +282,41 @@ def train_ch8(net,train_iter,vocab, lr, num_epochs,device, use_random_iter = Fal
         print(f'困惑度 {ppl:.1f}, {speed:.1f} 词元/秒 {str(device)}')
         print(predict('time traveller'))
         print(predict('traveller'))
+    print("Train completed！")
+    plt.ioff()  # 关闭交互模式
+    plt.show()
+
+class RNNModel(nn.Module):
+    def __init__(self,rnn_layer,vocab_size,**kwargs):
+        # **语法的作用是将后续接收到关键词参数打包成一个字典
+        super(RNNModel,self).__init__(**kwargs)
+        self.rnn = rnn_layer
+        self.vocab_size = vocab_size
+        self.num_hiddens = self.rnn.hidden_size
+
+        if not self.rnn.bidirectional:
+            self.num_directions = 1
+            self.linear = nn.Linear(self.num_hiddens, self.vocab_size)
+        else:
+            self.num_directions = 2
+            self.linear = nn.Linear(self.num_hiddens * 2, self.vocab_size)
+
+    def forward(self,inputs,state):
+        x = F.one_hot(inputs.T.long(),self.vocab_size)
+        x = x.to(torch.float32)
+        y,state = self.rrnn(x,state)
+        output = self.linear(y.reshape((-1,y.shape[-1])))
+        return output,state
+    def begin_state(self,device,batch_size):
+        if not isinstance(self.rnn,nn.LSTM):
+            return torch.zeros((self.num_directions * self.rnn.num_layers,batch_size,self.num_hiddens),
+                               device=device)
+        else:
+            return (torch.zeros((
+                self.num_directions * self.rnn.num_layers,
+                batch_size, self.num_hiddens), device=device),
+                    torch.zeros((
+                        self.num_directions * self.rnn.num_layers,
+                        batch_size, self.num_hiddens), device=device))
+
+
