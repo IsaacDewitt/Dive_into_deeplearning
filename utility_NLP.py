@@ -304,7 +304,7 @@ class RNNModel(nn.Module):
     def forward(self,inputs,state):
         x = F.one_hot(inputs.T.long(),self.vocab_size)
         x = x.to(torch.float32)
-        y,state = self.rrnn(x,state)
+        y,state = self.rnn(x,state)
         output = self.linear(y.reshape((-1,y.shape[-1])))
         return output,state
     def begin_state(self,device,batch_size):

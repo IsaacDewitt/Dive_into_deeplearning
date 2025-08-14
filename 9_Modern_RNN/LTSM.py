@@ -3,6 +3,8 @@ from torch import nn
 
 import utility
 import utility_NLP
+from utility_NLP import RNNModel
+
 
 def get_lstm_params(vocab_size,num_hiddens,device):
     num_inputs = num_outputs = vocab_size
@@ -50,7 +52,11 @@ if __name__ == '__main__':
     train_iter, vocab = utility_NLP.load_data_time_machine(batch_size,num_steps)
     vocab_size,num_hiddens,device = len(vocab), 256, utility.try_gpu()
     num_epochs,lr = 500,1
-    model = utility_NLP.RNNModelScratch(len(vocab),num_hiddens,device,get_lstm_params,
-                                        init_lstm_state,lstm)
+    # model = utility_NLP.RNNModelScratch(len(vocab),num_hiddens,device,get_lstm_params,
+    #                                     init_lstm_state,lstm)
+    num_inputs = vocab_size
+    lstm_layer = nn.LSTM(num_inputs,num_hiddens)
+    model = RNNModel(lstm_layer,len(vocab))
+    model = model.to(device)
     utility_NLP.train_ch8(model,train_iter,vocab,lr,num_epochs,device)
 
