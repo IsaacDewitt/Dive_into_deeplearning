@@ -86,7 +86,8 @@ class Vocab:
         if not isinstance(indices, (list,tuple)):
             return self.idx_to_token[indices]
         return [self.idx_to_token[index] for index in indices]
-    
+
+    @property
     def unk(self):
         return 0
     

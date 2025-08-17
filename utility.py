@@ -14,6 +14,9 @@ from torch.utils import data
 import matplotlib.pyplot as plt
 import os
 import requests
+import tarfile
+import zipfile
+
 # requests是python中常用的HTTP请求库之一，可以实现python中的发送网络请求和接收网路请求
 import matplotlib
 matplotlib.use('TkAgg')
@@ -192,9 +195,6 @@ class Animator:
         for x,y,fmt in zip(self.X,self.Y,self.fmts):
             self.axes[0].plot(x,y,fmt)
 
-        # self.config_axes()
-        # plt.draw()
-        # plt.pause(0.01)  # 短暂停留，触发刷新
         self.config_axes()
         self.fig.canvas.flush_events()
         plt.pause(0.01)
@@ -282,11 +282,6 @@ def train_ch3(net,train_iter,test_iter,w,b,loss,num_epochs,updater):
     assert train_acc <= 1 and train_acc > 0.7, train_acc
     assert test_acc <= 1 and test_acc > 0.7, test_acc
 
-def set_figsize(figsize=(3.5, 2.5)):  # :contentReference[oaicite:3]{index=3}
-    """Set the figure size for matplotlib."""
-    use_svg_display()
-    plt.rcParams['figure.figsize'] = figsize
-
 
 def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
          ylim=None, xscale='linear', yscale='linear', fmts=('-', 'm--', 'g-.', 'r:'),
@@ -352,9 +347,22 @@ def sgd(params, lr, batch_size):
             param.grad.zero_()
             # 将参数梯度清零，防止梯度累计
 
+def download_extract(name, folder=None):
+    """下载并解压缩 zip/tar 文件"""
+    fname = download(name)
+    base_dir = os.path.dirname(fname)
+    data_dir, ext = os.path.splitext(fname)
+    if ext == '.zip':
+        fp = zipfile.ZipFile(fname, 'r')
+    elif ext in ('.tar', '.gz'):
+        fp = tarfile.open(fname, 'r')
+    else:
+        assert False, '只支持 zip/tar 文件'
+    fp.extractall(base_dir)
+    return os.path.join(base_dir, folder) if folder else data_dir
 
-
-
+def set_figsize(figsize = (3.5,2.5)):
+    plt.rcParams['figure.figsize'] = figsize
 
 
 
