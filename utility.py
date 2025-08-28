@@ -33,6 +33,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
 def download(name,cache_dir = os.path.join('..','data')):
+    DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
     DATA_HUB = dict()
     # 创建字典
     DATA_HUB['kaggle_house_train'] = (  # @save

@@ -6,7 +6,7 @@ import collections
 
 from torch.utils.hipify.hipify_python import meta_data
 
-from utility import Animator, Timer, Accumulator, try_gpu, load_data_nmt
+from utility import Animator, Timer, Accumulator, try_gpu, load_data_nmt, truncate_pad
 import utility
 
 
@@ -129,6 +129,53 @@ def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
             animator.add(epoch+1,(metric[0]/metric[1],))
     print(f'loss {metric[0] / metric[1]:.3f},{metric[1]/timer.stop():.1f}'
           f'tokens/sec on {str(device)}')
+
+def predict_seq2seq(net,src_scentence,src_vocab, tgt_vocab,num_steps,
+                    device, save_attention_weights = False):
+    """sequence tro sequence predict"""
+    net.eval()
+    src_tokens = src_vocab[src_scentence.lower().split(' ')] +[
+        src_vocab['<eos>']
+    ]
+    enc_valid_len = torch.tensor([len(src_tokens)],device=device)
+    src_tokens = truncate_pad(src_tokens,num_steps,src_vocab['<pad>'])
+    enc_X = torch.unsqueeze(
+        torch.tensor(src_tokens,dtype=torch.long,device=device),dim = 0
+    )
+    enc_outputs = net.encoder(enc_X, enc_valid_len)
+    dec_state = net.decoder.init_state(enc_outputs, enc_valid_len)
+    dec_x = torch.unsqueeze(torch.tensor(
+        [tgt_vocab['<bos>']], dtype = torch.long,device = device),dim = 0
+    )
+    output_seqq, attention_weight_seq = [],[]
+    for _ in range(num_steps):
+        Y,dec_state = net.decoder(dec_x,dec_state)
+        dec_x = Y.argmax(dim=2)
+        pred = dec_x.squeeze(dim = 0).type(torch.int32).item()
+        if save_attention_weights:
+            attention_weight_seq.append(net.decoder.attention_weights)
+            if pred == tgt_vocab['<eos>']:
+                break
+            output_seqq.append(pred)
+    return  ' '.join(tgt_vocab.to_tokens(output_seqq)), attention_weight_seq
+
+def bleu(pred_seq, label_seq,k):
+    """计算Bilingual evaluation understudy"""
+    pred_tokens, label_tokens = pred_seq.split(' '),label_seq.split(' ')
+    len_pred, len_label = len(pred_tokens), len(label_tokens)
+    score = math.exp(min(0,1-len_label/len_pred))
+    for n in range(1,k+1):
+        num_matches, label_subs = 0,collections.defaultdict(int)
+        for i in range(len_label - n + 1):
+            label_subs[' '.join(label_tokens[i:i+n])] +=1
+        for i in range(len_pred - n +1):
+            if label_subs[' '.join(pred_tokens[i:i+n])]>0:
+                num_matches += 1
+                label_subs[' '.join(label_tokens[i:i+n])] -= 1
+        score*=math.pow(num_matches/ (len_pred - n),math.pow(0.5,n))
+    return score
+
+
 if __name__ == '__main__':
     embed_size, num_hiddens, num_layers, dropout = 32,32,2,0.1
     batch_size, num_steps = 64,10
@@ -138,3 +185,9 @@ if __name__ == '__main__':
     decoder = Seq2SeqDecoder(len(tgt_vocab),embed_size,num_hiddens,num_layers,dropout = dropout)
     net = EncoderDecoder(encoder,decoder)
     train_seq2seq(net,train_iter,lr,num_epochs,tgt_vocab,device)
+    engs = ['go.','i lost.','he\'s calm .','i\'m home .']
+    fras = ['va !','j\'ai perdu .','il est calme .','je suis chez moi .']
+    for eng, fra in zip(engs, fras):
+        translation, attenuation_weight_seq = predict_seq2seq(net,eng,src_vocab,tgt_vocab,
+                                                              num_steps,device)
+        print(f'{eng}=> {translation}, bleu {bleu(translation,fra,k = 2):.3f}')

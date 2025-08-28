@@ -1,8 +1,7 @@
 import torch
 from torch import nn
 
-from utility import try_gpu
-from utility_NLP import load_data_time_machine, RNNModel, train_ch8
+from utility import try_gpu,load_data_time_machine, RNNModel, train_ch8
 
 if __name__ == '__main__':
     batch_size = 32
