@@ -25,11 +25,14 @@ from torch import nn
 import math
 # requests是python中常用的HTTP请求库之一，可以实现python中的发送网络请求和接收网路请求
 import matplotlib
-
+from matplotlib_inline import backend_inline
 matplotlib.use('TkAgg')
 # 使用TkAgg来弹出一个交互窗口
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+def use_svg_display():
+    """Use the svg format to display a plot in Jupyter."""
+    backend_inline.set_matplotlib_formats('svg')
 
 DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
 def download(name,cache_dir = os.path.join('..','data')):
@@ -807,5 +810,24 @@ class RNNModel(nn.Module):
                         batch_size, self.num_hiddens), device=device))
 
 
+def show_heatmaps(matrices, xlabel, ylabel, titles=None, figsize=(2.5, 2.5),cmap='Reds'):
+    use_svg_display()
+    num_rows, num_cols = matrices.shape[0],matrices.shape[1]
+    fig,axes = plt.subplots(num_rows,num_cols,figsize = figsize,sharex = True,
+                            sharey = True, squeeze = False)
+   # fig是figure对象，axes，Axes对象
+   # axes是一个matplotlib.axes._axes.Axes对象,类似数组,如果是一个单独的子图,返回单个对象
+   # 多个子图,返回一个numpy数组,其中包含多个Axes对象,代表的是一个坐标系,例如fig, axes = plt.subplots(2, 2)
+   # axes是一个2x2的Numpy数组
 
-
+    for i,(row_axes, row_matrices) in enumerate(zip(axes,matrices)):
+        for j,(ax,matrix) in enumerate(zip(row_axes,row_matrices)):
+            # zip把多个可迭代对象打包在一起，返回一个zip对象，第i个是所有组合对象的第i个元素的元组
+            pcm = ax.imshow(matrix.detach().numpy(), cmap = cmap)
+            if i == num_rows -1:
+               ax.set_xlabel(xlabel)
+            if j ==0:
+               ax.set_ylabel(ylabel)
+            if titles:
+               ax.set_title(titles[j])
+            fig.colorbar(pcm,ax = axes,shrink = 0.6)
