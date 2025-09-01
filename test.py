@@ -1,6 +1,6 @@
-
+import torch.nn.functional as F
 import numpy as np
-
+import torch
 # 创建一个小的矩阵和向量来演示
 np_matrix = np.arange(9).reshape(3, 3)
 np_vector1 = np.array([10, 20, 30])
@@ -39,3 +39,14 @@ a = np.array([[1, 2, 3], [4, 5, 6]])
 # 沿着列方向求和
 b = np.sum(a, axis=0)
 print(b)
+
+
+a = torch.tensor([[1.0, 2.0, 3.0],
+                  [1.0, 2.0, 3.0],
+                  [1.0, 2.0, 3.0]])
+output_dim0 = F.softmax(a, dim=0)
+# 沿着行操作，对每一列的数据进行sofmax
+print(output_dim0)
+output_dim1 = F.softmax(a, dim=1)
+# 沿着列操作，对每一行的数据进行sofmax
+print(output_dim1)

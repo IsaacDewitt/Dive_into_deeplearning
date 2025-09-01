@@ -831,3 +831,13 @@ def show_heatmaps(matrices, xlabel, ylabel, titles=None, figsize=(2.5, 2.5),cmap
             if titles:
                ax.set_title(titles[j])
             fig.colorbar(pcm,ax = axes,shrink = 0.6)
+
+def sequence_mask(x,valid_len,value = 0):
+    """在序列中屏蔽无关的项的一个掩膜"""
+    maxlen = x.size(1)
+    # 返回列的大小
+    mask = torch.arange(maxlen,dtype = torch.float32,
+                        device = x.device)[None,:] < valid_len[:,None]
+    # 约等于python的range()
+    x[~mask] = value
+    return x

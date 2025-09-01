@@ -1,0 +1,5 @@
+使用vpn需要设定代理程序的端口，例如端口为7890，则需要设置：
+git config --global http.proxy http://127.0.0.1:7890
+git config --global https.proxy http://127.0.0.1:7890
+使用一下命令来查看并修改Git的配置
+git config –-global –-edit
