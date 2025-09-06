@@ -68,3 +68,14 @@ def transpose_output(x,num_heads):
     x = x.reshape(-1,num_heads,x.shape[1],x.shape[2])
     x = x.permute(0,2,1,3)
     return x.reshape(x.shape[0],x.shape[1],-1)
+if __name__ == '__main__':
+    # 测试代码
+    num_hiddens, num_heads = 100, 5
+    attenuation = MultiHeadAttenuation(num_heads,num_hiddens,num_hiddens,
+                                    num_hiddens,0.5)
+    attenuation.eval()
+    batch_size, num_queries = 2,4
+    num_kvpairs, valid_lens = 6, torch.tensor([3,2])
+    x = torch.ones((batch_size,num_queries,num_hiddens))
+    y = torch.ones((batch_size,num_kvpairs,num_hiddens))
+    print(attenuation(x,y,y,valid_lens).shape)
